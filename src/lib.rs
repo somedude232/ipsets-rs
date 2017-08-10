@@ -1,8 +1,6 @@
 extern crate regex;
-extern crate netdefs;
 
 use std::ascii::AsciiExt;
-use std::borrow::Borrow;
 use std::clone::Clone;
 use std::cmp;
 use std::fmt;
@@ -60,14 +58,15 @@ pub enum SetKeyType {
     List,
 }
 
+#[allow(non_camel_case_types)]
 #[derive(Clone)]
 pub enum SetEntry {
     IPRange(Ipv4Addr,Ipv4Addr),
     IP(Ipv4Addr),
-    IP_MAC(Ipv4Addr,MAC_Address),
+    IP_MAC(Ipv4Addr,MacAddress),
     Port(Port),
     PortRange(Port,Port),
-    MAC(MAC_Address),
+    MAC(MacAddress),
     Net(Net),
     Net_Net(Net,Net),
     IP_Port(Ipv4Addr,Port),
@@ -185,10 +184,10 @@ pub fn capture_to_set_entry(entry: Captures, entry_type: SetEntry) -> SetEntry {
     match entry_type {
         SetEntry::IPRange(_,_) => SetEntry::IPRange(Ipv4Addr::from_str(&entry["ip1"]).unwrap(),Ipv4Addr::from_str(&entry["ip2"]).unwrap()),
         SetEntry::IP(_) => SetEntry::IP(Ipv4Addr::from_str(&entry["ip"]).unwrap()),
-        SetEntry::IP_MAC(_,_) => SetEntry::IP_MAC(Ipv4Addr::from_str(&entry["ip"]).unwrap(), MAC_Address::from_str(&entry["mac"])),
+        SetEntry::IP_MAC(_,_) => SetEntry::IP_MAC(Ipv4Addr::from_str(&entry["ip"]).unwrap(), MacAddress::from_str(&entry["mac"])),
         SetEntry::Port(_) => SetEntry::Port(Port::new(if &entry["proto"] == "tcp" {TransportProtocol::TCP} else {TransportProtocol::UDP}, u16::from_str(&entry["port"]).unwrap())),
         SetEntry::PortRange(_,_) => SetEntry::PortRange(Port::new(if &entry["proto1"] == "tcp" {TransportProtocol::TCP} else {TransportProtocol::UDP}, u16::from_str(&entry["port1"]).unwrap()),Port::new(if &entry["proto2"] == "tcp" {TransportProtocol::TCP} else {TransportProtocol::UDP}, u16::from_str(&entry["port2"]).unwrap())),
-        SetEntry::MAC(_) => SetEntry::MAC(MAC_Address::from_str(&entry["mac"])),
+        SetEntry::MAC(_) => SetEntry::MAC(MacAddress::from_str(&entry["mac"])),
         SetEntry::Net(_) => SetEntry::Net(Net::new(Ipv4Addr::from_str(&entry["ip"]).unwrap(),u8::from_str(&entry["cidr"]).unwrap())),
         SetEntry::Net_Net(_,_) => SetEntry::Net_Net(Net::new(Ipv4Addr::from_str(&entry["ip1"]).unwrap(),u8::from_str(&entry["cidr1"]).unwrap()),Net::new(Ipv4Addr::from_str(&entry["ip2"]).unwrap(),u8::from_str(&entry["cidr2"]).unwrap())),
         SetEntry::IP_Port(_,_) => SetEntry::IP_Port(Ipv4Addr::from_str(&entry["ip"]).unwrap(),Port::new(if &entry["proto"] == "tcp" {TransportProtocol::TCP} else {TransportProtocol::UDP}, u16::from_str(&entry["port"]).unwrap())),
@@ -229,30 +228,30 @@ impl fmt::Display for Port {
 }
 
 #[derive(Clone, Debug, Copy)]
-pub struct MAC_Address {
+pub struct MacAddress {
     addr: [u8;6],
 }
 
-impl MAC_Address {
+impl MacAddress {
 
-    pub fn from_bytes(bytes: [u8;6]) -> MAC_Address {
-        MAC_Address { addr: bytes }
+    pub fn from_bytes(bytes: [u8;6]) -> MacAddress {
+        MacAddress { addr: bytes }
     }
 
-    pub fn from_slice(slice: &[u8]) -> MAC_Address {
+    pub fn from_slice(slice: &[u8]) -> MacAddress {
         assert!(slice.len() == 6);
-        MAC_Address { addr: [slice[0],slice[1],slice[2],slice[3],slice[4],slice[5]] }
+        MacAddress { addr: [slice[0],slice[1],slice[2],slice[3],slice[4],slice[5]] }
     }
 
-    pub fn from_vec(vector: Vec<u8>) -> MAC_Address {
-        MAC_Address::from_slice(vector.as_slice())
+    pub fn from_vec(vector: Vec<u8>) -> MacAddress {
+        MacAddress::from_slice(vector.as_slice())
     }
 
-    pub fn from_str(str: &str) -> MAC_Address {
+    pub fn from_str(str: &str) -> MacAddress {
         let pattern = Regex::new(r"^([[:xdigit:]]{2}[:-]){5}([[:xdigit:]]{2})$").unwrap();
         assert!(pattern.is_match(str));
         let bytes = str.split(|c| c == '-' || c == ':').map(|x| u8::from_str_radix(x,16).unwrap()).collect::<Vec<u8>>();
-        MAC_Address::from_slice(bytes.as_slice())
+        MacAddress::from_slice(bytes.as_slice())
     }
 
     pub fn to_bytes(&self) -> [u8;6] {
@@ -264,15 +263,15 @@ impl MAC_Address {
     }
 }
 
-impl fmt::Display for MAC_Address {
+impl fmt::Display for MacAddress {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let result  = self.addr[1..].iter().fold(String::new(), |acc, &a| acc + &format!(":{:02X}", a));
         write!(f, "{:02X}{}",self.addr[0],result)
     }
 }
 
-impl cmp::PartialEq for MAC_Address {
-    fn eq(&self, other: &MAC_Address) -> bool {
+impl cmp::PartialEq for MacAddress {
+    fn eq(&self, other: &MacAddress) -> bool {
         self.to_string() == other.to_string()
     }
 }
@@ -401,6 +400,7 @@ impl Ipset {
         let mut params: Vec<String> = Vec::new();
         params.push(String::from_str("test").unwrap());
         params.push(self.name.clone());
+        params.push(entry.to_string());
         let output = Command::new(IPSET_BIN_PATH).args(&params).output().expect("Error executing ipset test command");
         
         let stdout = String::from_utf8(output.clone().stdout).unwrap();
@@ -522,9 +522,9 @@ mod tests {
     fn set_entry_to_type_string_test() {
         assert_eq!(set_entry_to_type_string(SetEntry::IPRange(Ipv4Addr::new(0,0,0,0),Ipv4Addr::new(255,255,255,255))),String::from_str("ip").unwrap());
         assert_eq!(set_entry_to_type_string(SetEntry::IP(Ipv4Addr::new(1,2,3,4))),String::from_str("ip").unwrap());
-        assert_eq!(set_entry_to_type_string(SetEntry::MAC(MAC_Address::from_str("12:34:56:78:90:AB"))),String::from_str("mac").unwrap());
+        assert_eq!(set_entry_to_type_string(SetEntry::MAC(MacAddress::from_str("12:34:56:78:90:AB"))),String::from_str("mac").unwrap());
         assert_eq!(set_entry_to_type_string(SetEntry::Net(Net::new(Ipv4Addr::new(4,3,2,1),13))),String::from_str("net").unwrap());
-        assert_eq!(set_entry_to_type_string(SetEntry::IP_MAC(Ipv4Addr::new(192,168,0,0),MAC_Address::from_str("FE:DC:BA:98:76:54"))),String::from_str("ip,mac").unwrap());
+        assert_eq!(set_entry_to_type_string(SetEntry::IP_MAC(Ipv4Addr::new(192,168,0,0),MacAddress::from_str("FE:DC:BA:98:76:54"))),String::from_str("ip,mac").unwrap());
         assert_eq!(set_entry_to_type_string(SetEntry::Net_Net(Net::new(Ipv4Addr::new(0,0,0,0),0),Net::new(Ipv4Addr::new(192,168,0,0),24))),String::from_str("net,net").unwrap());
         assert_eq!(set_entry_to_type_string(SetEntry::IP_Port(Ipv4Addr::new(127,0,0,1),Port::new(TransportProtocol::TCP,443))),String::from_str("ip,port").unwrap());
         assert_eq!(set_entry_to_type_string(SetEntry::Net_Port(Net::new(Ipv4Addr::new(42,52,53,78),32),Port::new(TransportProtocol::UDP,53))),String::from_str("net,port").unwrap());

@@ -5,4 +5,3 @@ authors = ["Some Dude <7zbayf+sw1l67jjhlbk@sharklasers.com>"]
 
 [dependencies]
 regex = "0.2"
-netdefs = { path = "../netdefs/" }
