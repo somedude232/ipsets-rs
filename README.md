@@ -29,10 +29,10 @@ ipsets-rs is a Rust library that struct-ifies ipsets and exposes methods for man
 
 ## Usage
 Insert the following into your `Cargo.toml`:
-`ipsets = "0.1"`
+* `ipsets = "0.1"` (Once on crates.io) **OR**
+* `ipsets = { path="/home/user/my-git-or-rust-workspace/ipsets-rs/" }`
 
-And make sure to import it at the top of your Rust files:
-`extern crate ipsets;`
+And make sure to import it at the top of your Rust files: `extern crate ipsets;`
 
 Full code documentation coming soon.
 
