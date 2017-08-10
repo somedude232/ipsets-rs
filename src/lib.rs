@@ -4,13 +4,13 @@ extern crate netdefs;
 use std::ascii::AsciiExt;
 use std::borrow::Borrow;
 use std::clone::Clone;
+use std::cmp;
 use std::fmt;
 use std::error::Error;
 use std::net::Ipv4Addr;
 use std::process::{Command,Output};
 use std::str::FromStr;
 
-use netdefs::layer2::ethernet::MAC_Address;
 use regex::{Captures,Regex};
 
 // Should already be on your $PATH, change if not.
@@ -225,6 +225,55 @@ impl Port {
 impl fmt::Display for Port {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f,"{:?}:{}",self.proto,self.num)
+    }
+}
+
+#[derive(Clone, Debug, Copy)]
+pub struct MAC_Address {
+    addr: [u8;6],
+}
+
+impl MAC_Address {
+
+    pub fn from_bytes(bytes: [u8;6]) -> MAC_Address {
+        MAC_Address { addr: bytes }
+    }
+
+    pub fn from_slice(slice: &[u8]) -> MAC_Address {
+        assert!(slice.len() == 6);
+        MAC_Address { addr: [slice[0],slice[1],slice[2],slice[3],slice[4],slice[5]] }
+    }
+
+    pub fn from_vec(vector: Vec<u8>) -> MAC_Address {
+        MAC_Address::from_slice(vector.as_slice())
+    }
+
+    pub fn from_str(str: &str) -> MAC_Address {
+        let pattern = Regex::new(r"^([[:xdigit:]]{2}[:-]){5}([[:xdigit:]]{2})$").unwrap();
+        assert!(pattern.is_match(str));
+        let bytes = str.split(|c| c == '-' || c == ':').map(|x| u8::from_str_radix(x,16).unwrap()).collect::<Vec<u8>>();
+        MAC_Address::from_slice(bytes.as_slice())
+    }
+
+    pub fn to_bytes(&self) -> [u8;6] {
+        self.addr
+    }
+
+    pub fn get_oui(&self) -> [u8;3] {
+        [self.addr[0], self.addr[1], self.addr[2]]
+    }
+}
+
+impl fmt::Display for MAC_Address {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let result  = self.addr[1..].iter().fold(String::new(), |acc, &a| acc + &format!(":{:02X}", a));
+        write!(f, "{:02X}{}",self.addr[0],result)
+    }
+}
+
+impl cmp::PartialEq for MAC_Address {
+    fn eq(&self, other: &MAC_Address) -> bool {
+        self.to_string() == other.to_string()
     }
 }
 
